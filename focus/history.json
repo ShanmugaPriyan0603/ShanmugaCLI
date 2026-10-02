@@ -1,0 +1,32 @@
+[
+  {
+    "id": "7e625127-3aa9-4c35-9760-8f2364bb8d80",
+    "title": "Quantum Mechanics",
+    "duration_minutes": 15,
+    "start_time": "2026-09-04T12:03:04.5983756+05:30",
+    "end_time": "2026-09-04T12:18:04.5983756+05:30",
+    "completed": false,
+    "ended_at": "2026-09-04T12:07:42.4602126+05:30",
+    "reflection": "Session stopped manually."
+  },
+  {
+    "id": "abbcab62-1fb8-46ce-9604-5bc4b061f3b5",
+    "title": "Quantum Computing",
+    "duration_minutes": 15,
+    "start_time": "2026-09-04T12:10:40.7138687+05:30",
+    "end_time": "2026-09-04T12:25:40.7138687+05:30",
+    "completed": false,
+    "ended_at": "2026-09-04T23:01:12.8260634+05:30",
+    "reflection": "Session stopped manually."
+  },
+  {
+    "id": "739c325a-7262-45ac-b49b-842c663c2f63",
+    "title": "VLSI",
+    "duration_minutes": 15,
+    "start_time": "2026-10-02T16:59:51.5065552+05:30",
+    "end_time": "2026-10-02T17:14:51.5065552+05:30",
+    "completed": false,
+    "ended_at": "2026-10-02T17:00:28.7614097+05:30",
+    "reflection": "Session stopped manually."
+  }
+]

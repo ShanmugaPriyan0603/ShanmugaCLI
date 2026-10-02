@@ -1,0 +1,10 @@
+# Local OAuth secrets
+google/credentials.json
+google/token.json
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Focus runtime state
+focus/active.json
