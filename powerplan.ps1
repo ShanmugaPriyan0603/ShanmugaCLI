@@ -37,45 +37,61 @@ function Show-PowerPlanBox {
         [string[]]$Lines
     )
 
-    # Calculate the widest line automatically.
-    $contentWidth = $Title.Length
-
-    foreach ($line in $Lines) {
-        if ($line.Length -gt $contentWidth) {
-            $contentWidth = $line.Length
-        }
-    }
-
-    # 2 spaces of padding on each side.
-    $innerWidth = $contentWidth + 4
+        $width = 56
+        $innerWidth = $width - 4
 
     Write-Host ""
 
-    Write-Host ("╭" + ("─" * $innerWidth) + "╮") -ForegroundColor DarkGray
+        Write-Host ("╭" + ("─" * ($width - 2)) + "╮") -ForegroundColor DarkGray
 
     # Center title.
+        if ($Title.Length -gt $innerWidth) {
+            $Title = $Title.Substring(0, $innerWidth - 3) + "..."
+        }
+
     $titleLeft = [math]::Floor(($innerWidth - $Title.Length) / 2)
     $titleRight = $innerWidth - $Title.Length - $titleLeft
 
-    Write-Host "│" -NoNewline -ForegroundColor DarkGray
+        Write-Host "│ " -NoNewline -ForegroundColor DarkGray
     Write-Host (" " * $titleLeft) -NoNewline
     Write-Host $Title -NoNewline -ForegroundColor Magenta
     Write-Host (" " * $titleRight) -NoNewline
-    Write-Host "│" -ForegroundColor DarkGray
+        Write-Host " │" -ForegroundColor DarkGray
 
-    Write-Host ("├" + ("─" * $innerWidth) + "┤") -ForegroundColor DarkGray
+        Write-Host ("├" + ("─" * ($width - 2)) + "┤") -ForegroundColor DarkGray
 
-    foreach ($line in $Lines) {
+        foreach ($rawLine in $Lines) {
+            if ([string]::IsNullOrWhiteSpace($rawLine)) {
+                $wrappedLines = @("" )
+            }
+            else {
+                $wrappedLines = @()
+                $remaining = $rawLine.Trim()
 
-        $padding = $innerWidth - $line.Length
+                while ($remaining.Length -gt $innerWidth) {
+                    $breakAt = $remaining.LastIndexOf(" ", $innerWidth)
 
-        Write-Host "│" -NoNewline -ForegroundColor DarkGray
-        Write-Host $line -NoNewline -ForegroundColor White
-        Write-Host (" " * $padding) -NoNewline
-        Write-Host "│" -ForegroundColor DarkGray
+                    if ($breakAt -le 0) {
+                        $breakAt = $innerWidth
+                    }
+
+                    $wrappedLines += $remaining.Substring(0, $breakAt).TrimEnd()
+                    $remaining = $remaining.Substring($breakAt).TrimStart()
+                }
+
+                $wrappedLines += $remaining
+            }
+
+            foreach ($line in $wrappedLines) {
+                $padding = $innerWidth - $line.Length
+
+                Write-Host "│ " -NoNewline -ForegroundColor DarkGray
+                Write-Host $line -NoNewline -ForegroundColor White
+                Write-Host ((" " * $padding) + " │") -ForegroundColor DarkGray
+            }
     }
 
-    Write-Host ("╰" + ("─" * $innerWidth) + "╯") -ForegroundColor DarkGray
+        Write-Host ("╰" + ("─" * ($width - 2)) + "╯") -ForegroundColor DarkGray
 
     Write-Host ""
 }

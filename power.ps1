@@ -11,32 +11,51 @@ function Show-PowerBox {
     )
 
     $width = 56
+    $innerWidth = $width - 4
 
     Write-Host ""
-    Write-Host "╭$("─" * $width)╮" -ForegroundColor DarkMagenta
+    Write-Host ("╭" + ("─" * ($width - 2)) + "╮") -ForegroundColor DarkMagenta
 
-    $padding = $width - $Title.Length
+    if ($Title.Length -gt $innerWidth) {
+        $Title = $Title.Substring(0, $innerWidth - 3) + "..."
+    }
+
+    $padding = $innerWidth - $Title.Length
     $left = [math]::Floor($padding / 2)
     $right = $padding - $left
 
-    Write-Host "│$(' ' * $left)$Title$(' ' * $right)│" -ForegroundColor $Color
+    Write-Host ("│ " + (" " * $left) + $Title + (" " * $right) + " │") -ForegroundColor $Color
+    Write-Host ("├" + ("─" * ($width - 2)) + "┤") -ForegroundColor DarkMagenta
 
-    Write-Host "├$("─" * $width)┤" -ForegroundColor DarkMagenta
+    foreach ($rawLine in ($Message -split "`r?`n")) {
+        if ([string]::IsNullOrWhiteSpace($rawLine)) {
+            $wrappedLines = @("")
+        }
+        else {
+            $wrappedLines = @()
+            $remaining = $rawLine.Trim()
 
-    $lines = $Message -split "`n"
+            while ($remaining.Length -gt $innerWidth) {
+                $breakAt = $remaining.LastIndexOf(" ", $innerWidth)
 
-    foreach ($line in $lines) {
+                if ($breakAt -le 0) {
+                    $breakAt = $innerWidth
+                }
 
-        if ($line.Length -gt $width - 2) {
-            $line = $line.Substring(0, $width - 2)
+                $wrappedLines += $remaining.Substring(0, $breakAt).TrimEnd()
+                $remaining = $remaining.Substring($breakAt).TrimStart()
+            }
+
+            $wrappedLines += $remaining
         }
 
-        $padding = ($width - 2) - $line.Length
-
-        Write-Host "│ $line$(' ' * $padding) │" -ForegroundColor White
+        foreach ($line in $wrappedLines) {
+            $padding = $innerWidth - $line.Length
+            Write-Host ("│ " + $line + (" " * $padding) + " │") -ForegroundColor White
+        }
     }
 
-    Write-Host "╰$("─" * $width)╯" -ForegroundColor DarkMagenta
+    Write-Host ("╰" + ("─" * ($width - 2)) + "╯") -ForegroundColor DarkMagenta
     Write-Host ""
 }
 
@@ -231,7 +250,6 @@ function hibernate {
         $runTime = $time.ToString("HH:mm")
 
         $date = $time.ToString("MM/dd/yyyy")
-
         $action = 'rundll32.exe powrprof.dll,SetSuspendState Hibernate'
 
         schtasks.exe /create `
@@ -249,7 +267,6 @@ function hibernate {
 
         return
     }
-
 
     # Immediate hibernate
     $answer = Read-Host "Hibernate the computer now? (y/n)"

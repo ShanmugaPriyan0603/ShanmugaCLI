@@ -7,13 +7,35 @@ function Start-SpeedTest {
     $width = 58
 
     function Line($text, $color = "White") {
-        $padding = $width - 4 - $text.Length
-        if ($padding -lt 0) { $padding = 0 }
+        $innerWidth = $width - 4
 
-        Write-Host "│  " -NoNewline -ForegroundColor DarkGray
-        Write-Host $text -NoNewline -ForegroundColor $color
-        Write-Host (" " * $padding) -NoNewline
-        Write-Host "  │" -ForegroundColor DarkGray
+        foreach ($rawLine in ($text -split "`r?`n")) {
+            if ([string]::IsNullOrWhiteSpace($rawLine)) {
+                $wrappedLines = @("")
+            }
+            else {
+                $wrappedLines = @()
+                $remaining = $rawLine.Trim()
+
+                while ($remaining.Length -gt $innerWidth) {
+                    $breakAt = $remaining.LastIndexOf(" ", $innerWidth)
+
+                    if ($breakAt -le 0) {
+                        $breakAt = $innerWidth
+                    }
+
+                    $wrappedLines += $remaining.Substring(0, $breakAt).TrimEnd()
+                    $remaining = $remaining.Substring($breakAt).TrimStart()
+                }
+
+                $wrappedLines += $remaining
+            }
+
+            foreach ($line in $wrappedLines) {
+                $padding = $innerWidth - $line.Length
+                Write-Host ("│  " + $line + (" " * $padding) + "  │") -ForegroundColor $color
+            }
+        }
     }
 
     function Border($left, $fill, $right) {
@@ -46,14 +68,48 @@ function Start-SpeedTest {
         return
     }
 
-    # Run Ookla and capture JSON output
-    $raw = & speedtest.exe --accept-license --accept-gdpr -f json 2>$null
+    # Run Ookla with a timeout so a stalled network/client cannot freeze the UI.
+    $outputFile = [System.IO.Path]::GetTempFileName()
+    $errorFile = [System.IO.Path]::GetTempFileName()
+    $speedtestProcess = $null
 
-    if (-not $raw) {
-        Line "Speedtest failed to return data." "Red"
+    try {
+        $speedtestProcess = Start-Process `
+            -FilePath "speedtest.exe" `
+            -ArgumentList @("--accept-license", "--accept-gdpr", "-f", "json") `
+            -RedirectStandardOutput $outputFile `
+            -RedirectStandardError $errorFile `
+            -WindowStyle Hidden `
+            -PassThru `
+            -ErrorAction Stop
+
+        if (-not $speedtestProcess.WaitForExit(30000)) {
+            $speedtestProcess.Kill()
+            Line "Speedtest timed out after 30 seconds." "Red"
+            Line "Check your network connection and try again." "Yellow"
+            Line ""
+            Border "╰" "─" "╯"
+            return
+        }
+
+        $raw = Get-Content $outputFile -Raw -ErrorAction SilentlyContinue
+
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            Line "Speedtest failed to return data." "Red"
+            Line ""
+            Border "╰" "─" "╯"
+            return
+        }
+    }
+    catch {
+        Line "Could not start Speedtest CLI." "Red"
+        Line $_.Exception.Message "Yellow"
         Line ""
         Border "╰" "─" "╯"
         return
+    }
+    finally {
+        Remove-Item $outputFile, $errorFile -Force -ErrorAction SilentlyContinue
     }
 
     try {
