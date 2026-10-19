@@ -507,6 +507,54 @@ function focusstop {
 
 
 # ============================================
+#                DELETE HISTORY
+# ============================================
+
+function focusdelete {
+
+    $history = @(Get-FocusHistory)
+
+    if ($history.Count -eq 0) {
+        Show-FocusBox `
+            "NO HISTORY" `
+            "There are no focus sessions to delete." `
+            "Yellow"
+
+        return
+    }
+
+    $answer = Read-Host "Delete all focus history? (y/n)"
+
+    if ($answer -notmatch "^(y|yes)$") {
+        Write-Host "History deletion cancelled." -ForegroundColor DarkGray
+        return
+    }
+
+    if (Test-Path $FocusHistoryFile) {
+        Remove-Item $FocusHistoryFile -Force
+    }
+
+    Show-FocusBox `
+        "HISTORY DELETED" `
+        "All saved focus sessions have been deleted." `
+        "Green"
+}
+
+
+# ============================================
+#                 FOCUS HELP
+# ============================================
+
+function focushelp {
+
+    Show-FocusBox `
+        "FOCUS COMMANDS" `
+        "focus                  Start a focus session`n`nfocus status           Show the active session and remaining time`nfocus stop             Stop the active session`nfocus delete           Delete all saved focus history`nfocus history          View recent focus sessions`nfocus stats            View focus statistics`nfocus config           Show blocked applications`nfocus help             Show this command list" `
+        "Cyan"
+}
+
+
+# ============================================
 #                 START FOCUS
 # ============================================
 
@@ -525,6 +573,26 @@ function focus {
 
         switch ($Args[0].ToLower()) {
 
+            "help" {
+                focushelp
+                return
+            }
+
+            "commands" {
+                focushelp
+                return
+            }
+
+            "?" {
+                focushelp
+                return
+            }
+
+            "-h" {
+                focushelp
+                return
+            }
+
             "status" {
                 focusstatus
                 return
@@ -532,6 +600,11 @@ function focus {
 
             "stop" {
                 focusstop
+                return
+            }
+
+            "delete" {
+                focusdelete
                 return
             }
 
@@ -626,65 +699,72 @@ function focus {
     # Countdown
     # ----------------------------------------
 
-    $script:FocusInterrupted = $false
     $previousCancelKeyPress = [Console]::CancelKeyPress
 
-    [Console]::CancelKeyPress = {
-        param($cancelSender, $cancelEventArgs)
-        $cancelEventArgs.Cancel = $true
-        $script:FocusInterrupted = $true
-    }
+    $sessionStopped = $false
 
-    while ($true) {
+    while (-not $sessionStopped) {
 
-        if ($script:FocusInterrupted) {
+        $script:FocusInterrupted = $false
+
+        [Console]::CancelKeyPress = {
+            param($cancelSender, $cancelEventArgs)
+            $cancelEventArgs.Cancel = $true
+            $script:FocusInterrupted = $true
+        }
+
+        while ($true) {
+
+            if ($script:FocusInterrupted) {
+                break
+            }
+
+            $now = Get-Date
+            $remaining = $end - $now
+
+            if ($remaining.TotalSeconds -le 0) {
+                break
+            }
+
+            $hours = [math]::Floor($remaining.TotalHours)
+            $minutesLeft = $remaining.Minutes
+            $secondsLeft = $remaining.Seconds
+
+            if ($hours -gt 0) {
+                $display = "{0:D2}:{1:D2}:{2:D2}" -f $hours, $minutesLeft, $secondsLeft
+            }
+            else {
+                $display = "{0:D2}:{1:D2}" -f $minutesLeft, $secondsLeft
+            }
+
+            Clear-Host
+
+            Show-FocusBox `
+                "FOCUS" `
+                "$title`n`nTime remaining: $display`n`nPress Ctrl+C to request stopping the session." `
+                "Cyan"
+
+            Start-Sleep -Seconds 1
+        }
+
+        [Console]::CancelKeyPress = $previousCancelKeyPress
+
+        if (-not $script:FocusInterrupted) {
             break
         }
 
-        $now = Get-Date
-        $remaining = $end - $now
+        $answer = Read-Host "Stop focus session '$title'? (y/n)"
 
-        if ($remaining.TotalSeconds -le 0) {
-            break
+        if ($answer -notmatch "^(y|yes)$") {
+            $script:FocusInterrupted = $false
+            continue
         }
 
-        $hours = [math]::Floor($remaining.TotalHours)
-        $minutesLeft = $remaining.Minutes
-        $secondsLeft = $remaining.Seconds
+        $reason = Read-Host "Reason (optional)"
 
-        if ($hours -gt 0) {
-            $display = "{0:D2}:{1:D2}:{2:D2}" -f $hours, $minutesLeft, $secondsLeft
+        if ([string]::IsNullOrWhiteSpace($reason)) {
+            $reason = "Session stopped manually."
         }
-        else {
-            $display = "{0:D2}:{1:D2}" -f $minutesLeft, $secondsLeft
-        }
-
-        Clear-Host
-
-        $blockedApps = Get-BlockedApplications
-
-        if ($blockedApps.Count -gt 0) {
-            $blockedText = "Blocked: " + ($blockedApps -join ", ")
-        }
-        else {
-            $blockedText = "No applications blocked"
-        }
-
-        Show-FocusBox `
-            "FOCUS" `
-            "$title`n`nTime remaining: $display`n`n$blockedText`n`nPress Ctrl+C to stop the session." `
-            "Cyan"
-
-        Start-Sleep -Seconds 1
-    }
-
-    [Console]::CancelKeyPress = $previousCancelKeyPress
-
-    # ----------------------------------------
-    # Session interrupted
-    # ----------------------------------------
-
-    if ($script:FocusInterrupted) {
 
         $actualEnd = Get-Date
         $actualMinutes = [math]::Floor(($actualEnd - $start).TotalMinutes)
@@ -696,7 +776,7 @@ function focus {
         $session.completed = $false
         $session.ended_at = $actualEnd.ToString("o")
         $session.actual_duration_minutes = $actualMinutes
-        $session.reflection = "Session interrupted with Ctrl+C."
+        $session.reflection = $reason
 
         $history = @(Get-FocusHistory)
         $history += $session
@@ -707,10 +787,14 @@ function focus {
         Clear-Host
 
         Show-FocusBox `
-            "FOCUS INTERRUPTED" `
-            "$title`n`nFocused for $actualMinutes minutes.`n`nSession saved to history." `
+            "FOCUS STOPPED" `
+            "$title`n`nFocused for $actualMinutes minutes.`n`nReason: $reason`n`nSession saved to history." `
             "Yellow"
 
+        $sessionStopped = $true
+    }
+
+    if ($sessionStopped) {
         return
     }
 
@@ -730,12 +814,12 @@ function focus {
         "Green"
 
     Write-Host ""
-    Write-Host "What did you accomplish?" -ForegroundColor Cyan
+    Write-Host "Notes (optional)" -ForegroundColor Cyan
 
     $reflection = Read-Host ">"
 
     if ([string]::IsNullOrWhiteSpace($reflection)) {
-        $reflection = "No reflection recorded."
+        $reflection = "No notes recorded."
     }
 
 
