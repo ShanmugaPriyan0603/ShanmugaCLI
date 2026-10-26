@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, date, timezone
 import uuid
 import sys
 import calendar as pycalendar
+from difflib import SequenceMatcher
 
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
@@ -277,6 +278,178 @@ def format_time(event):
     return dt.astimezone().strftime(
         "%H:%M"
     )
+
+
+def get_recurrence_label(event):
+
+    recurrence = event.get(
+        "recurrence",
+        []
+    )
+
+    rules = " ".join(
+        recurrence
+    ).upper()
+
+    if "FREQ=YEARLY" in rules:
+        return "Repeats every year"
+
+    if "FREQ=MONTHLY" in rules:
+        return "Repeats every month"
+
+    return None
+
+
+def search_events(service, query):
+
+    today = date.today()
+    start = date(
+        today.year - 10,
+        1,
+        1
+    )
+    end = date(
+        today.year + 11,
+        1,
+        1
+    )
+
+    query_words = [
+        word
+        for word in query.lower().split()
+        if word
+    ]
+
+    events = []
+    page_token = None
+
+    while True:
+
+        response = service.events().list(
+            calendarId="primary",
+            timeMin=start_of_day(start).astimezone().isoformat(),
+            timeMax=start_of_day(end).astimezone().isoformat(),
+            singleEvents=False,
+            maxResults=2500,
+            pageToken=page_token
+        ).execute()
+
+        events.extend(
+            response.get(
+                "items",
+                []
+            )
+        )
+
+        page_token = response.get(
+            "nextPageToken"
+        )
+
+        if not page_token:
+            break
+
+    matches = []
+
+    for event in events:
+
+        name = event.get(
+            "summary",
+            "(No title)"
+        )
+        lowered_name = name.lower()
+
+        word_scores = [
+            SequenceMatcher(
+                None,
+                word,
+                lowered_name
+            ).ratio()
+            for word in query_words
+        ]
+
+        query_score = SequenceMatcher(
+            None,
+            query.lower(),
+            lowered_name
+        ).ratio()
+
+        contains_all_words = all(
+            word in lowered_name
+            for word in query_words
+        )
+
+        if (
+            not contains_all_words
+            and query_score < 0.45
+            and not any(score >= 0.72 for score in word_scores)
+        ):
+            continue
+
+        event_date = get_event_date(
+            event
+        )
+
+        if event_date is None:
+            continue
+
+        matches.append(
+            (
+                max(
+                    [query_score] + word_scores
+                ),
+                event_date,
+                name,
+                get_recurrence_label(
+                    event
+                ),
+                event.get(
+                    "id",
+                    ""
+                )
+            )
+        )
+
+    matches.sort(
+        key=lambda match: (
+            -match[0],
+            match[1],
+            match[2].lower()
+        )
+    )
+
+    seen = set()
+
+    for _, event_date, name, recurrence, event_id in matches:
+
+        key = (
+            event_date,
+            name,
+            recurrence,
+            event_id
+        )
+
+        if key in seen:
+            continue
+
+        seen.add(
+            key
+        )
+
+        recurrence_text = (
+            f" - [{recurrence}]"
+            if recurrence
+            else ""
+        )
+
+        print(
+            f"{event_date.strftime('%B %d, %Y')} - "
+            f"{name}{recurrence_text}"
+        )
+
+    if not seen:
+        print(
+            f'No events found matching "{query}".'
+        )
 
 
 # ============================================
@@ -2509,6 +2682,35 @@ def main():
         return
 
     # ----------------------------------------
+    # Search events
+    # ----------------------------------------
+
+    if args[0].lower() == "search":
+
+        if len(args) < 2:
+
+            print()
+            print(
+                color(
+                    'Usage: cal search "event name"',
+                    CYAN
+                )
+            )
+            print()
+            return
+
+        service = get_calendar_service()
+
+        if service:
+
+            search_events(
+                service,
+                " ".join(args[1:]).strip()
+            )
+
+        return
+
+    # ----------------------------------------
     # Month
     # ----------------------------------------
 
@@ -2594,6 +2796,30 @@ def main():
         return
 
     # ----------------------------------------
+    # Bare month name
+    # ----------------------------------------
+
+    parsed_month = parse_month(
+        args
+    )
+
+    if parsed_month is not None:
+
+        year, month = parsed_month
+
+        service = get_calendar_service()
+
+        if service:
+
+            show_month(
+                service,
+                year,
+                month
+            )
+
+        return
+
+    # ----------------------------------------
     # Normal date
     # ----------------------------------------
 
@@ -2662,7 +2888,19 @@ def main():
         )
 
         print(
+            '  cal search "birthday"'
+        )
+
+        print(
             "  cal month"
+        )
+
+        print(
+            "  cal January"
+        )
+
+        print(
+            "  cal \"January 2027\""
         )
 
         print()
