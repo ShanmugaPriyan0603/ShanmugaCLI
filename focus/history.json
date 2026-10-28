@@ -28,5 +28,35 @@
     "completed": false,
     "ended_at": "2026-10-02T17:00:28.7614097+05:30",
     "reflection": "Session stopped manually."
+  },
+  {
+    "id": "8148ac21-da09-4730-8bce-3aa4319b943b",
+    "title": "Quantum computing",
+    "duration_minutes": 15,
+    "start_time": "2026-10-02T17:27:56.3633758+05:30",
+    "end_time": "2026-10-02T17:42:56.3633758+05:30",
+    "completed": false,
+    "ended_at": "2026-10-02T17:28:13.797898+05:30",
+    "reflection": "Session stopped manually."
+  },
+  {
+    "id": "47098aab-5851-413b-98b5-19282b4c9d90",
+    "title": "DPS Lab",
+    "duration_minutes": 60,
+    "start_time": "2026-10-27T18:21:31.9500414+05:30",
+    "end_time": "2026-10-27T19:21:31.9500414+05:30",
+    "completed": true,
+    "ended_at": "2026-10-27T19:22:05.2184423+05:30",
+    "reflection": "Completed half of DSP lab. Rather productive"
+  },
+  {
+    "id": "96f63706-9a0c-482c-8664-23a668f12ae6",
+    "title": "DPS Lab Practical (Again)",
+    "duration_minutes": 60,
+    "start_time": "2026-10-27T19:37:20.8460346+05:30",
+    "end_time": "2026-10-27T20:37:20.8460346+05:30",
+    "completed": true,
+    "ended_at": "2026-10-27T20:38:09.2054451+05:30",
+    "reflection": "productive"
   }
 ]

@@ -3,10 +3,12 @@
 # ============================================
 
 import os
+import subprocess
 import sys
 import uuid
 from datetime import datetime, timedelta
 
+from google.auth.exceptions import RefreshError
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
@@ -47,6 +49,14 @@ def color(text, colour):
 #              GOOGLE CONNECTION
 # ============================================
 
+def _run_google_authentication():
+    auth_script = os.path.join(BASE_DIR, "google_auth.py")
+    return subprocess.run(
+        [sys.executable, auth_script],
+        check=False
+    ).returncode == 0
+
+
 def get_tasks_service():
 
     if not os.path.exists(TOKEN_FILE):
@@ -58,11 +68,16 @@ def get_tasks_service():
             )
         )
 
-        print(
-            f"Expected: {TOKEN_FILE}"
-        )
+        print("Starting Google authentication...")
 
-        return None
+        if not _run_google_authentication():
+            print(
+                color(
+                    "Google authentication could not be completed.",
+                    RED
+                )
+            )
+            return None
 
     try:
 
@@ -72,7 +87,30 @@ def get_tasks_service():
         )
 
         if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except RefreshError as e:
+                if "invalid_grant" not in str(e):
+                    raise
+
+                print(
+                    color(
+                        "Google token expired or revoked. Starting authentication again.",
+                        YELLOW
+                    )
+                )
+
+                os.remove(TOKEN_FILE)
+                if not _run_google_authentication():
+                    print(
+                        color(
+                            "Google authentication could not be completed.",
+                            RED
+                        )
+                    )
+                    return None
+
+                return get_tasks_service()
 
         if not creds.valid:
 

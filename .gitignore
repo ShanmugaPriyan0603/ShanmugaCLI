@@ -8,3 +8,8 @@ __pycache__/
 
 # Focus runtime state
 focus/active.json
+
+# Study planner runtime backups and recovery copies
+planner/data/*.backup-*.json
+planner/data/*.corrupt-*.json
+planner/.env.local

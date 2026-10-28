@@ -1,4 +1,6 @@
 from pathlib import Path
+
+from google.auth.exceptions import RefreshError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -33,9 +35,17 @@ def main():
     if creds and creds.expired and creds.refresh_token:
         print("Refreshing Google authentication...")
 
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except RefreshError as e:
+            if "invalid_grant" not in str(e):
+                raise
 
-    else:
+            print("Google token expired or revoked. Starting authentication again.")
+            TOKEN_FILE.unlink()
+            creds = None
+
+    if not creds or not creds.valid:
         print("Opening Google authentication...")
         print()
 
